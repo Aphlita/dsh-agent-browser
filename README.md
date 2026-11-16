@@ -9,7 +9,7 @@
 > 状态：P0+P1 已验收（2026-11-16，9/9 通过）。host 半 + client 半 + 引擎 + 自研 WS/租约全部落地。
 > **怎么用（给人看的）**：[`docs/usage.md`](docs/usage.md)；设计文档：[`docs/architecture.md`](docs/architecture.md)。
 
-![右栏里的 Agent 浏览器：420×860 实时画面 + 地址栏 + 租约状态](docs/images/gui.jpg)
+![右栏全屏下的 Agent 浏览器：实时像素流 + 地址栏 + 租约状态](docs/images/gui.jpg)
 
 > 说明：「共享登录态」目前指**同一个浏览器 profile**（插件自己的 profile，可长期登录）；接你日常 Chrome 的登录态属于尚未实现的 Copilot 档位。
 
@@ -98,11 +98,12 @@ Remove-Item "$prof\node_modules\dsh-agent-browser"   # 只删 junction，不删�
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `viewportWidth` / `viewportHeight` | 420 / 860 | 右栏视口（与像素流一致，点击坐标按此换算） |
+| `viewportWidth` / `viewportHeight` | 1280 / 800 | 兜底视口（没有客户端上报尺寸时用这个）。有右栏 pane 时按面板实际尺寸自动跟随，点击坐标按当前视口换算 |
+| `autoViewport` | `true` | 是否跟随右栏 pane 尺寸调整浏览器视口；关掉就固定用 `viewportWidth/Height` |
 | `headless` | `true` | 无头；调试可设 false 看真窗口 |
 | `executablePath` | 自动探测 | Chrome/Edge 路径；自动探测不到时填 |
 | `profileDir` | `%LOCALAPPDATA%\dsh-agent-browser\profile` | 浏览器用户目录（登录态存这里） |
-| `frameQuality` / `maxFps` | 55 / 30 | 像素流质量与帧率上限（超过丢旧帧；实测 420×860 滚动可出 40+ fps，30 为清晰度/带宽平衡点） |
+| `frameQuality` / `maxFps` | 55 / 30 | 像素流质量与帧率上限（超过丢旧帧；实测滚动可出 40+ fps，30 为清晰度/带宽平衡点） |
 | `idleCloseMs` | 600000 | 无人连接时自动关浏览器 |
 | `agentLeaseMs` / `humanLeaseMs` | 30000 / 120000 | 租约 TTL |
 | `leaseWaitMs` | 0 | agent 拿不到租约时排队等待上限（0 = 立即返回 busy，由 agent 自己重试；多 agent 场景建议 2000–5000） |
@@ -121,7 +122,7 @@ Remove-Item "$prof\node_modules\dsh-agent-browser"   # 只删 junction，不删�
 
 ## 已知限制
 
-- 像素流是 420×860 的手机式视口（右栏宽度决定），不是桌面全宽。
+- 视口默认跟随右栏 pane：窄栏时页面按窄布局重排，点 ⛶ 或让 pane 自动全屏后变成桌面宽度（1280+）。不是"把桌面页缩放进窄栏"。
 - 页面若在 iframe 内部，快照脚本只覆盖主框架。
 - 首帧要等浏览器进程冷启动（约 1–3s）。
 - `browser_wait_for` 轮询间隔 150ms，超时上限 60s；`browser_eval` 审批只在右栏 pane 打开时可用（否则直接报"没有客户端"）。

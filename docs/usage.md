@@ -68,7 +68,7 @@ agent 实际调用的 12 个工具（了解即可，不必手动调）：
 
 底部**标签条**显示所有页面：点标签切换（`*` 是当前），`×` 关闭（最后一个不能关）。
 
-agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标签条会同步出现。切标签时画面帧流会跟过去，视口保持 420×860。
+agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标签条会同步出现。切标签时画面帧流会跟过去，视口按右栏 pane 当前尺寸保持。
 
 ---
 
@@ -100,9 +100,16 @@ agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标�
         headless: false
 ```
 
-重启 DSH Desktop 后会弹出一个 420×860 的 Chrome 窗口，和右栏画面同步（右栏仍然可用）。
+重启 DSH Desktop 后会弹出一个 Chrome 窗口（尺寸跟随当前视口，默认 1280×800），和右栏画面同步（右栏仍然可用）。
 
-其他可调项：`viewportWidth/Height`（默认 420×860）、`frameQuality`（60）、`maxFps`（12）、`idleCloseMs`（600000）、`agentLeaseMs`（30000）、`humanLeaseMs`（120000）、`executablePath`（指定 Chrome/Edge 路径）、`profileDir`（浏览器 profile 目录）。
+## 9. 视口大小（桌面布局）
+
+- 视口会跟随右栏 pane 的**实际尺寸**：窄栏时页面按窄布局重排，全屏后就是真实桌面宽度。
+- 首次打开自动全屏一次（只做一次，不会反复抢屏）；想切回窄栏点面板标题栏的「还原」，或 pane 里工具栏的 `⛶`。
+- 状态栏会显示当前尺寸（例如 `实时 · 1440×812`），点画面时坐标按这个尺寸换算。
+- 想固定尺寸：`autoViewport: false` + `viewportWidth` / `viewportHeight`（默认 1280×800，范围 320–2400 × 240–1800）。
+
+其他可调项：`frameQuality`（55）、`maxFps`（30）、`idleCloseMs`（600000）、`agentLeaseMs`（30000）、`humanLeaseMs`（120000）、`executablePath`（指定 Chrome/Edge 路径）、`profileDir`（浏览器 profile 目录）。
 
 ---
 

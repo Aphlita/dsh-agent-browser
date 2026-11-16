@@ -5,8 +5,10 @@
     - id: agent-browser
       name: 'dsh-agent-browser'
       config:
-        viewportWidth: 420
-        viewportHeight: 860
+        # 兜底视口：右栏有客户端时按面板实际尺寸自动跟随（全屏 ≈ 真实桌面浏览器大小）。
+        viewportWidth: 1280
+        viewportHeight: 800
+        autoViewport: true
         headless: true
         frameQuality: 55
         maxFps: 30
