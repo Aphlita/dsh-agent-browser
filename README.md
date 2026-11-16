@@ -1,5 +1,9 @@
 # dsh-agent-browser
 
+[![test](https://github.com/Aphlita/dsh-agent-browser/actions/workflows/test.yml/badge.svg)](https://github.com/Aphlita/dsh-agent-browser/actions/workflows/test.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![node](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](package.json)
+
 给 DSH 加一个「agent 可共用」的浏览器：右侧栏里是一个真实 Chrome/Edge 的画面（像素流），模型通过 `browser_*` 工具操作**同一个**页面。人和 agent 看到的是同一屏、同一份登录态。
 
 > 状态：P0+P1 已验收（2026-11-16，9/9 通过）。host 半 + client 半 + 引擎 + 自研 WS/租约全部落地。
