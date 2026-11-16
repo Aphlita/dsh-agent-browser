@@ -10,7 +10,11 @@
         viewportHeight: 800
         autoViewport: true
         headless: true
-        frameQuality: 55
+        frameQuality: 60
+        # 画面静止 hdIdleMs 后补一张按 devicePixelRatio 抓的高清帧（高分屏不发糊）。
+        hdOnIdle: true
+        hdQuality: 80
+        hdIdleMs: 400
         maxFps: 30
         # browser_eval 默认关闭（安全默认）。需要时改 allowEval: true 后重启；
         # 每次执行仍会在右栏弹窗审批并写 audit.jsonl。

@@ -103,7 +103,8 @@ Remove-Item "$prof\node_modules\dsh-agent-browser"   # 只删 junction，不删�
 | `headless` | `true` | 无头；调试可设 false 看真窗口 |
 | `executablePath` | 自动探测 | Chrome/Edge 路径；自动探测不到时填 |
 | `profileDir` | `%LOCALAPPDATA%\dsh-agent-browser\profile` | 浏览器用户目录（登录态存这里） |
-| `frameQuality` / `maxFps` | 55 / 30 | 像素流质量与帧率上限（超过丢旧帧；实测滚动可出 40+ fps，30 为清晰度/带宽平衡点） |
+| `frameQuality` / `maxFps` | 60 / 30 | 像素流质量与帧率上限（超过丢旧帧；实测滚动可出 40+ fps，30 为清晰度/带宽平衡点） |
+| `hdOnIdle` / `hdIdleMs` / `hdQuality` | `true` / `400` / `80` | 画面静止约 400ms 后补一张按 `devicePixelRatio` 抓的高清帧（高分屏不发糊）；一有运动帧就回到流式 |
 | `idleCloseMs` | 600000 | 无人连接时自动关浏览器 |
 | `agentLeaseMs` / `humanLeaseMs` | 30000 / 120000 | 租约 TTL |
 | `leaseWaitMs` | 0 | agent 拿不到租约时排队等待上限（0 = 立即返回 busy，由 agent 自己重试；多 agent 场景建议 2000–5000） |

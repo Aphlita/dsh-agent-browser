@@ -108,12 +108,13 @@ agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标�
 - 首次打开自动全屏一次（只做一次，不会反复抢屏）；想切回窄栏点面板标题栏的「还原」，或 pane 里工具栏的 `⛶`。
 - 状态栏会显示当前尺寸（例如 `实时 · 1440×812`），点画面时坐标按这个尺寸换算。
 - 想固定尺寸：`autoViewport: false` + `viewportWidth` / `viewportHeight`（默认 1280×800，范围 320–2400 × 240–1800）。
+- **高分屏模糊**：滚动/动画时是流式帧（按 CSS 像素抓，1x），静止约 0.4 秒后会自动补一张按 `devicePixelRatio` 抓的高清帧，文字变锐；再次滚动会回到流式帧。相关开关：`hdOnIdle`（默认 true）、`hdIdleMs`（400）、`hdQuality`（80）。
 
-其他可调项：`frameQuality`（55）、`maxFps`（30）、`idleCloseMs`（600000）、`agentLeaseMs`（30000）、`humanLeaseMs`（120000）、`executablePath`（指定 Chrome/Edge 路径）、`profileDir`（浏览器 profile 目录）。
+其他可调项：`frameQuality`（60）、`maxFps`（30）、`idleCloseMs`（600000）、`agentLeaseMs`（30000）、`humanLeaseMs`（120000）、`executablePath`（指定 Chrome/Edge 路径）、`profileDir`（浏览器 profile 目录）。
 
 ---
 
-## 9. 常见问题
+## 10. 常见问题
 
 | 现象 | 原因 / 处理 |
 |---|---|
@@ -128,7 +129,7 @@ agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标�
 
 ---
 
-## 10. 停用 / 回滚
+## 11. 停用 / 回滚
 
 1. 编辑 `C:\Users\Aphlita\AppData\Roaming\dsh-desktop\harness\profiles\web\package.json`，从 `dsh.profile.bundles` 里删掉 `"dsh-agent-browser"`；
 2. 删 junction：`Remove-Item "...\profiles\web\node_modules\dsh-agent-browser"`（只删链接，不动 `D:\插件\dsh-agent-browser` 源码）；
@@ -138,7 +139,7 @@ agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标�
 
 ---
 
-## 11. 现在就能试的最小闭环
+## 12. 现在就能试的最小闭环
 
 ```text
 1) 右栏 + → 「Agent 浏览器」
