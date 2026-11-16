@@ -106,6 +106,18 @@ const { LeaseManager, LEASE_EVENT } = await import("../lib/lease.js");
   await sleep(1400); // sweep 间隔 1s
   const afterExpire = lease.status();
   check("TTL 到期自动释放", afterExpire.free === true && events.some((e) => String(e).includes(LEASE_EVENT.EXPIRED) || e === LEASE_EVENT.EXPIRED));
+
+  // 排队申请（acquireAsync）：被挡住时等待，释放后拿到；超时则返回 busy
+  const q1 = lease.acquire({ ownerId: "agent:q1", kind: "agent", label: "queue 1" });
+  check("排队测试：q1 先拿到", q1.ok === true);
+  setTimeout(() => lease.release("agent:q1"), 300);
+  const waitStart = Date.now();
+  const queued = await lease.acquireAsync({ ownerId: "agent:q2", kind: "agent", label: "queue 2", waitMs: 3000 });
+  check("排队等待后在释放时拿到租约", queued.ok === true && queued.waitedMs >= 250 && Date.now() - waitStart >= 250, `waitedMs=${queued.waitedMs}`);
+  const blocked = await lease.acquireAsync({ ownerId: "agent:q3", kind: "agent", label: "queue 3", waitMs: 200 });
+  check("排队超时返回 busy", blocked.ok === false && blocked.reason === "busy" && blocked.waitedMs >= 180, `waitedMs=${blocked.waitedMs}`);
+  lease.release("agent:q2");
+  check("排队测试后回到 free", lease.status().free === true);
   lease.dispose?.();
 }
 

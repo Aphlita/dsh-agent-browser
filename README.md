@@ -66,6 +66,8 @@ dsh-agent-browser/
 3. 结果回到 host：允许 → 在页面求值；拒绝/超时（`evalTimeoutMs`）/没有打开的客户端 → 抛错给模型；
 4. 无论批准与否都追加一行 JSON 审计：`{at, kind:"eval", owner, expression, approved, reason}`，默认 `profileDir/../audit.jsonl`。
 
+审计不是只管 eval：每一次工具调用（`kind:"tool"`：工具名 / owner / 耗时 / 入参摘要 / 失败原因）、每一次人类命令（`kind:"command"`）、每一次租约变更（`kind:"lease"`：acquired / preempted / expired / released）、浏览器启停（`kind:"session"`）都会写入同一份 `audit.jsonl`。
+
 ## 安装（当前机器已装好，这里是复现步骤）
 
 1. 插件目录放到任意位置（如 `D:\插件\dsh-agent-browser`）。
@@ -103,6 +105,8 @@ Remove-Item "$prof\node_modules\dsh-agent-browser"   # 只删 junction，不删�
 | `frameQuality` / `maxFps` | 55 / 30 | 像素流质量与帧率上限（超过丢旧帧；实测 420×860 滚动可出 40+ fps，30 为清晰度/带宽平衡点） |
 | `idleCloseMs` | 600000 | 无人连接时自动关浏览器 |
 | `agentLeaseMs` / `humanLeaseMs` | 30000 / 120000 | 租约 TTL |
+| `leaseWaitMs` | 0 | agent 拿不到租约时排队等待上限（0 = 立即返回 busy，由 agent 自己重试；多 agent 场景建议 2000–5000） |
+| `yieldOnContention` | `true` | 有人在排队时，当前 agent 每次操作完主动让出租约（避免长任务饿死别人） |
 | `allowEval` | `false` | 是否允许 `browser_eval`；打开后每次调用仍需右栏批准 |
 | `evalTimeoutMs` | 60000 | 等用户批准的超时 |
 | `auditLog` | 空 | 审计日志路径；空则写 `profileDir/../audit.jsonl` |
@@ -134,7 +138,7 @@ Remove-Item "$prof\node_modules\dsh-agent-browser"   # 只删 junction，不删�
 离线测试**不需要安装 DSH、也不需要 Chrome**（脚本会自己生成 `@deepseek-ai/*` 的测试 shim，仅用于解析 import）：
 
 ```powershell
-node test/run.mjs          # 租约 + WebSocket + 插件契约，期望 21/21
+node test/run.mjs          # 租约 + 排队 + WebSocket + 插件契约，期望 25/25
 node test/run.mjs --unit   # 只跑纯 JS 单测
 ```
 
@@ -142,7 +146,9 @@ node test/run.mjs --unit   # 只跑纯 JS 单测
 
 ```powershell
 node ..\spike\host-apply-test.mjs   # 期望 33/33
+node test/stress.mjs                # 多 agent 并发压测（1/2/4 agent + 人类抢占 + TTL），约 25s
 ```
+
 
 ## 许可证
 
