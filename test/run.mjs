@@ -6,7 +6,7 @@
  *   node test/run.mjs --unit     # 只跑纯 JS 单测
  *
  * 说明：插件的 host 半 import 了 @deepseek-ai/dsh-tools 与 @deepseek-ai/schemastery，
- * 这两个包由 DSH 宿主在运行时提供。为了让「评审/贡献者不装 DSH 也能跑测试」，
+ * 这两个包由 DSH 宿主在运行时提供。为了让「贡献者不装 DSH 也能跑测试」，
  * 本脚本会在 package 内生成最小 shim（node_modules 已被 .gitignore 忽略）。
  */
 import { mkdir, writeFile, access } from "node:fs/promises";

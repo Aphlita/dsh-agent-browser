@@ -10,6 +10,7 @@
  * 用法：node test/stress.mjs            （约 25-40s）
  *       node test/stress.mjs --quick    （每场景操作数减半）
  *
+ * 结果同时打印到终端并写入 .test-profile/stress-results.json。
  */
 import http from "node:http";
 import path from "node:path";
@@ -18,6 +19,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
 const PORT = 39199;
+const OUT_JSON = path.join(ROOT, ".test-profile", "stress-results.json");
 const QUICK = process.argv.includes("--quick");
 const OPS = QUICK ? 6 : 12;
 

@@ -1,7 +1,6 @@
 # Agent 浏览器 · 使用说明
 
-> 插件位置：`D:\插件\dsh-agent-browser\`　｜　已装进 live profile（junction + `dsh.profile.bundles`）
-> 状态：P0 + P1 验收 9/9 通过（`docs/p0-status.md`）；`browser_eval` 默认关闭。
+> `browser_eval` 默认关闭；其余功能开箱可用。
 
 ---
 
@@ -39,7 +38,7 @@
 | 登录后操作 | 「打开 https://后台地址 ，用我待会发给你的账号密码登录，进去把订单导出」 |
 | 填表 / 提交 | 「打开这个表单页，姓名填张三、备注写『周五前回复』，然后提交并把结果页截给我」 |
 | 边看边解释 | 「打开这个文档页，你滚动，我看到哪里你解释到哪里」 |
-| 保存页面内容 | 「把这个页面正文存成 D:\插件\tmp\page.md，再截一张整页图」 |
+| 保存页面内容 | 「把这个页面正文存成 md 文件，再截一张整页图」 |
 | 卡在验证码 | 「停，我来点」→ 你点画面 → 「好了，接着做」 |
 | 让它等页面加载 | 「点完等结果出来再继续（用 browser_wait_for）」 |
 
@@ -75,32 +74,32 @@ agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标�
 ## 6. 截图与文件
 
 - 右栏画面是**实时像素流**，不是截图。
-- 要留存证据就说「截个图」，agent 调 `browser_screenshot`，落盘到：
-  `C:\Users\Aphlita\AppData\Local\dsh-agent-browser\shots\shot-<时间戳>.jpg`
+- 要留存证据就说「截个图」，agent 调 `browser_screenshot`，落盘到浏览器 profile 同级的 `shots/` 目录（具体路径看工具返回值）。
 - 整页截图：`browser_screenshot(full_page=true)`（超长页会裁到 4000×8000 上限）。
 
 ---
 
 ## 7. `browser_eval`（执行页面 JS）——默认关闭
 
-这是唯一「能跑任意脚本」的口子，所以按你之前拍板做成**默认关闭 + 每次审批 + 审计**。
+这是唯一「能跑任意脚本」的口子，因此设计成**默认关闭 + 每次审批 + 审计**。
 
-- **现在 live 里是开着的**（验收时临时打开），**下次重启自动回到关闭**。
-- 想长期用：把 `D:\插件\dsh-agent-browser\cordis.patch.yml` 里 `allowEval: false` 改成 `true`，重启 DSH Desktop；之后每次调用都会在右栏弹卡，点「允许执行」才跑。
-- 审计（每条批准/拒绝都记）：`C:\Users\Aphlita\AppData\Local\dsh-agent-browser\audit.jsonl`，字段 `{at, kind, owner, expression, approved, reason}`。
+- 想用：把配置里 `allowEval` 改成 `true`，重启 DSH；之后每次调用都会在右栏弹卡，点「允许执行」才跑。
+- 审计（每条批准/拒绝都记）：`profileDir/../audit.jsonl`，字段 `{at, kind, owner, expression, approved, reason}`。
 - 关闭状态下调用会返回：「browser_eval 已被配置关闭（allowEval=false）…」。
+
+![审批卡：标题「允许 agent 在这个页面执行脚本？」+ 待执行表达式 + 允许/拒绝](images/approval.jpg)
 
 ---
 
 ## 8. 想看见真窗口？（可选）
 
-默认 `headless: true`——浏览器无可见窗口，只有右栏画面。想调试或做需要真窗口的操作，改 `cordis.patch.yml`：
+默认 `headless: true`——浏览器无可见窗口，只有右栏画面。想调试或做需要真窗口的操作，改配置：
 
 ```yaml
         headless: false
 ```
 
-重启 DSH Desktop 后会弹出一个 Chrome 窗口（尺寸跟随当前视口，默认 1280×800），和右栏画面同步（右栏仍然可用）。
+重启 DSH 后会弹出一个 Chrome 窗口（尺寸跟随当前视口，默认 1280×800），和右栏画面同步（右栏仍然可用）。
 
 ## 9. 视口大小（桌面布局）
 
@@ -118,7 +117,7 @@ agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标�
 
 | 现象 | 原因 / 处理 |
 |---|---|
-| 右栏找不到「Agent 浏览器」 | **刷新 GUI 页面**（client 半改动只需刷新，不需重启）；仍没有就看 `harness.log` 有没有 `dsh-agent-browser` 报错 |
+| 右栏找不到「Agent 浏览器」 | **刷新 GUI 页面**（client 半改动只需刷新，不需重启）；仍没有就看 DSH 日志里有没有 `dsh-agent-browser` 报错 |
 | 画面黑 / 一直「等待首帧」 | 点「重连」；还不行说明浏览器进程挂了，让 agent 调一次 `browser_open` 会重新起 |
 | 工具报「浏览器当前由「用户」占用」 | 你手上有租约：点「释放」，或等 120s 自动过期 |
 | 工具报「未获批准：右侧栏没有打开客户端」 | 右栏 tab 没开，审批送不到 |
@@ -126,18 +125,18 @@ agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标�
 | 百度/Cloudflare 出滑块 | 站点反爬，正常；人类接管点掉即可（这正是共享浏览器的价值） |
 | 截图里看到「美观输出 □」 | Chrome 自带 JSON 查看器的勾选框，页面内容，不是插件浮层 |
 | agent 说页面元素找不到 | 让 agent 先 `browser_snapshot` 看当前 `[eN]`；跨页/滚动后引用会变 |
-| 画面「一会清楚一会糊」地闪 | 旧版帧流会混入 1.5x 与 1x 两种分辨率的帧（已在 0.1.x 修：帧流恒定按 CSS 尺寸，静止补高清帧）。先**刷新页面**；仍闪则重启 DSH Desktop 让 host 半更新 |
+| 画面「一会清楚一会糊」地闪 | 旧版帧流会混入 1.5x 与 1x 两种分辨率的帧（现已修：帧流恒定按 CSS 尺寸，静止补高清帧）。先**刷新页面**，仍闪则重启 DSH 让 host 半更新 |
 | 同一会话开了两个浏览页面，画面尺寸乱跳 | 多个 viewer 各自上报右栏尺寸。host 取「最窄」的那个作为浏览器视口，两边都会稳定，但宽的那边是放大显示 |
 
 ---
 
-## 11. 停用 / 回滚
+## 11. 停用 / 卸载
 
-1. 编辑 `C:\Users\Aphlita\AppData\Roaming\dsh-desktop\harness\profiles\web\package.json`，从 `dsh.profile.bundles` 里删掉 `"dsh-agent-browser"`；
-2. 删 junction：`Remove-Item "...\profiles\web\node_modules\dsh-agent-browser"`（只删链接，不动 `D:\插件\dsh-agent-browser` 源码）；
-3. 重启 DSH Desktop。
+1. 从 profile 的 `package.json` 的 `dsh.profile.bundles` 里删掉 `"dsh-agent-browser"`；
+2. 删除 profile `node_modules` 里指向本仓库的链接（只删链接，不删源码）；
+3. 重启 DSH。
 
-卸载不删：`D:\插件\dsh-agent-browser\`（源码）、`%LOCALAPPDATA%\dsh-agent-browser\`（profile / shots / audit.jsonl）。
+浏览器 profile、`shots/` 与 `audit.jsonl` 在 `profileDir` 下，卸载不会自动删除。
 
 ---
 

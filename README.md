@@ -6,8 +6,7 @@
 
 给 DSH 加一个「agent 可共用」的浏览器：右侧栏里是一个真实 Chrome/Edge 的画面（像素流），模型通过 `browser_*` 工具操作**同一个**页面。人和 agent 看到的是同一屏、同一份登录态。
 
-> 状态：P0+P1 已验收（2026-11-16，9/9 通过）。host 半 + client 半 + 引擎 + 自研 WS/租约全部落地。
-> **怎么用（给人看的）**：[`docs/usage.md`](docs/usage.md)；设计文档：[`docs/architecture.md`](docs/architecture.md)。
+> **怎么用**：[`docs/usage.md`](docs/usage.md)。host 半 + client 半 + 引擎 + 自研 WebSocket / 租约全部在本仓库内实现，运行时零第三方依赖。
 
 ![右栏全屏下的 Agent 浏览器：实时像素流 + 地址栏 + 租约状态](docs/images/gui.jpg)
 
@@ -57,7 +56,7 @@ dsh-agent-browser/
 
 租约被占时工具**不会**硬失败重试，而是返回中文提示（谁在占用、可以先 snapshot 观察），避免两个 agent 互相打断。
 
-### 审批与审计（P1）
+### 审批与审计
 
 `browser_eval` 默认 `allowEval: false`（工具存在但调用会直接报「已被配置关闭」）。显式打开后：
 
@@ -68,31 +67,27 @@ dsh-agent-browser/
 
 审计不是只管 eval：每一次工具调用（`kind:"tool"`：工具名 / owner / 耗时 / 入参摘要 / 失败原因）、每一次人类命令（`kind:"command"`）、每一次租约变更（`kind:"lease"`：acquired / preempted / expired / released）、浏览器启停（`kind:"session"`）都会写入同一份 `audit.jsonl`。
 
-## 安装（当前机器已装好，这里是复现步骤）
+## 安装
 
-1. 插件目录放到任意位置（如 `D:\插件\dsh-agent-browser`）。
-2. 在 profile 里建 junction：
+插件是一个普通 npm 包（host 半 + client 半），装进 DSH 的 profile 并登记到 `dsh.profile.bundles` 后才会被加载：
+
+1. 取得插件目录：`git clone` 本仓库，或 `npm pack` 后解包。
+2. 让 profile 能解析到它——link 到 profile 的 `node_modules`（或用你惯用的包管理方式安装）：
    ```powershell
-   $prof = "$env:APPDATA\dsh-desktop\harness\profiles\web"
-   New-Item -ItemType Junction -Path "$prof\node_modules\dsh-agent-browser" -Target "D:\插件\dsh-agent-browser"
+   $prof = "<DSH_HOME>\profiles\<profile>"
+   New-Item -ItemType Junction -Path "$prof\node_modules\dsh-agent-browser" -Target "<本仓库路径>"
    ```
-3. 把包名加进 `profiles\web\package.json` 的 `dsh.profile.bundles`：
+3. 把包名加进该 profile 的 `package.json` 的 `dsh.profile.bundles`：
    ```json
    "dsh": { "profile": { "bundles": [ "...", "dsh-agent-browser" ] } }
    ```
-   （不要带 UTF-8 BOM，profile manifest 的 `JSON.parse` 会失败。）
-4. 重启 DSH Desktop（host 半的代码改动需要重启；client 半刷新页面即可）。
+   （保存为 UTF-8 无 BOM；profile manifest 的 `JSON.parse` 对 BOM 敏感。）
+4. 重启 DSH（host 半改动需重启；client 半改动刷新页面即可）。
 5. 右栏 `+` 里出现「Agent 浏览器」。
 
-### 回滚
+### 卸载
 
-```powershell
-$prof = "$env:APPDATA\dsh-desktop\harness\profiles\web"
-Remove-Item "$prof\node_modules\dsh-agent-browser"   # 只删 junction，不删目标
-# 从 package.json 的 dsh.profile.bundles 里去掉 "dsh-agent-browser"
-```
-
-备份在 `D:\插件\tmp\cordis.patch.yml.bak` 与 `package.json.bak`。
+从 `dsh.profile.bundles` 里删掉 `"dsh-agent-browser"`，移除 profile `node_modules` 里的链接，重启 DSH。浏览器 profile、截图与审计日志在 `profileDir` 下，卸载不会自动删除。
 
 ## 配置（cordis.patch.yml 的 config）
 
@@ -130,10 +125,9 @@ Remove-Item "$prof\node_modules\dsh-agent-browser"   # 只删 junction，不删�
 
 ## 排错
 
-- `%APPDATA%\dsh-desktop\logs\harness.log`：host 半日志（`agent-browser:` 前缀）。
-- 右栏 tab 不出现：确认 client 半 bundle 在 `__DSH_BOOT__` 里（`curl` 首页 HTML 搜 `dsh-agent-browser/client.js`），且需刷新页面。
-- 工具调用报 `output.render returned non-lossless JSON`：`render` 签名必须是 `(args, value)`，别把入参当输出。
-- 浏览器起不来：`DevToolsActivePort` 残留会被清掉；再不行查 `executablePath`。
+- host 半日志在 DSH 的 `harness.log`，关键字 `agent-browser:`。
+- 右栏 tab 不出现：确认 client 半 bundle 已被加载（刷新页面后仍无则重启 DSH）。
+- 浏览器起不来：检查 `executablePath`；残留的 `DevToolsActivePort` 会在启动前被清掉。
 
 ## 开发与测试
 
@@ -144,17 +138,12 @@ node test/run.mjs          # 租约 + 排队 + WebSocket + 插件契约，期望
 node test/run.mjs --unit   # 只跑纯 JS 单测
 ```
 
-需要真实浏览器的集成测试（会启动本机 Chrome/Edge）：
+需要真实浏览器的测试（会启动本机 Chrome/Edge）：
 
 ```powershell
-node ..\spike\host-apply-test.mjs   # 期望 33/33
-node test/stress.mjs                # 多 agent 并发压测（1/2/4 agent + 人类抢占 + TTL），约 25s
+node test/stress.mjs   # 多 agent 并发压测：1/2/4 agent 争用 + 人类抢占 + TTL，约 25s
 ```
-
 
 ## 许可证
 
 Apache-2.0，见 [LICENSE](./LICENSE)。
-
-
-本项目参加 2026 华中科技大学优秀开源项目征集与评选（原创开源软件项目赛道）。
