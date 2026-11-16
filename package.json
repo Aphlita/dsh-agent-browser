@@ -1,0 +1,66 @@
+{
+  "name": "dsh-agent-browser",
+  "version": "0.1.0",
+  "description": "Agent 与用户共用的内嵌浏览器：右栏实时画面 + 页面快照/点击/输入工具 + 单写者租约（DSH 插件，Apache-2.0）",
+  "type": "module",
+  "main": "lib/index.js",
+  "license": "Apache-2.0",
+  "author": "Aphlita (https://github.com/Aphlita)",
+  "homepage": "https://github.com/Aphlita/dsh-agent-browser#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aphlita/dsh-agent-browser.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Aphlita/dsh-agent-browser/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "browser",
+    "cdp",
+    "agent",
+    "computer-use",
+    "lease"
+  ],
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/*.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node test/run.mjs",
+    "test:unit": "node test/run.mjs --unit"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
+      ],
+      "platform": "web"
+    },
+    "manifestVersion": 1
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "0.2.1-rc.2",
+    "@deepseek-ai/schemastery": "*"
+  }
+}

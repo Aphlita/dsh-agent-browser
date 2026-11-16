@@ -1,0 +1,16 @@
+# dsh-agent-browser 的 Loader 行。
+# bundle 渠道安装时由 dsh plugin add 自动追加；手工安装时把下面这行插进
+# profile 的 cordis.patch.yml（与其它 insert 项并列）。
+- insert:
+    - id: agent-browser
+      name: 'dsh-agent-browser'
+      config:
+        viewportWidth: 420
+        viewportHeight: 860
+        headless: true
+        frameQuality: 55
+        maxFps: 30
+        # browser_eval 默认关闭（安全默认）。需要时改 allowEval: true 后重启；
+        # 每次执行仍会在右栏弹窗审批并写 audit.jsonl。
+        allowEval: false
+        evalTimeoutMs: 60000
