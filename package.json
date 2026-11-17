@@ -1,7 +1,7 @@
 {
   "name": "dsh-agent-browser",
-  "version": "0.1.0",
-  "description": "Agent 与用户共用的内嵌浏览器：右栏实时画面 + 页面快照/点击/输入工具 + 单写者租约（DSH 插件，Apache-2.0）",
+  "version": "0.2.0",
+  "description": "Agent 与用户共用的浏览器：原生窗口（零延迟）或右栏像素流 + 页面快照/点击/输入工具 + 单写者租约（DSH 插件，Apache-2.0）",
   "type": "module",
   "main": "lib/index.js",
   "license": "Apache-2.0",

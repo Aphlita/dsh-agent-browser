@@ -4,13 +4,26 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](package.json)
 
-给 DSH 加一个「agent 可共用」的浏览器：右侧栏里是一个真实 Chrome/Edge 的画面（像素流），模型通过 `browser_*` 工具操作**同一个**页面。人和 agent 看到的是同一屏、同一份登录态。
+给 DSH 加一个「agent 可共用」的浏览器：模型通过 `browser_*` 工具操作一个真实 Chrome/Edge 页面，人能看见、也能随时接手。人和 agent 看到的是同一屏、同一份登录态。显示层有两种模式：**像素流**（右栏内嵌画面）和**原生窗口**（独立窗口零延迟，右栏当控制台）。
 
 > **怎么用**：[`docs/usage.md`](docs/usage.md)。host 半 + client 半 + 引擎 + 自研 WebSocket / 租约全部在本仓库内实现，运行时零第三方依赖。
 
 ![右栏全屏下的 Agent 浏览器：实时像素流 + 地址栏 + 租约状态](docs/images/gui.jpg)
 
 > 说明：「共享登录态」目前指**同一个浏览器 profile**（插件自己的 profile，可长期登录）；接你日常 Chrome 的登录态属于尚未实现的 Copilot 档位。
+
+## 两种显示模式
+
+| | 像素流（`nativeWindow: false`，默认） | 原生窗口（`nativeWindow: true`） |
+|---|---|---|
+| 画面在哪 | 右栏 tab 内，`<img>` 实时帧 | 独立 Chrome/Edge 窗口（原生渲染） |
+| 人的操作延迟 | 约 80–120ms（CDP 出帧 + 编码 + 传输 + 解码） | **0**（就是本地浏览器） |
+| 人顺手看一眼 | 打开右栏即可 | 点右栏「回到浏览器窗口」让窗口到前台；或开「实时镜像」 |
+| 带宽/CPU | 30fps 持续编码 | 关镜像时 **不产生任何帧**；开镜像时按 `mirrorFps`（默认 6） |
+| agent 操作 | 走 CDP，与人共享同一页面 | 同左 |
+| 适用 | 需要画面常驻在对话旁 | 人机接力、自己也要高频操作 |
+
+原生窗口模式下降级提示：Linux 无窗口管理器时 `--window-position` 可能无效；窗口最小化后 screencast/镜像仍工作，但人看不到画面。
 
 ## 它和内置 Browser tab / Playwright MCP 的区别
 
@@ -35,7 +48,8 @@ dsh-agent-browser/
 └── cordis.patch.yml
 ```
 
-数据流：`Chrome --CDP--> host(engine) --WS 二进制帧--> client <img>`；人的点击/滚动 → `POST /agent-browser/api/command` → CDP；agent → 工具 → 同一个 engine。
+数据流（像素流模式）：`Chrome --CDP--> host(engine) --WS 二进制帧--> client <img>`；人的点击/滚动 → `POST /agent-browser/api/command` → CDP；agent → 工具 → 同一个 engine。
+原生窗口模式：浏览器直接画在自己的窗口里，host 只在右栏开镜像时才转发帧；人在窗口里点击/敲键盘会被探针识别并自动把租约切给「用户」。
 
 ## 工具
 
@@ -93,9 +107,11 @@ dsh-agent-browser/
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `viewportWidth` / `viewportHeight` | 1280 / 800 | 兜底视口（没有客户端上报尺寸时用这个）。有右栏 pane 时按面板实际尺寸自动跟随，点击坐标按当前视口换算 |
-| `autoViewport` | `true` | 是否跟随右栏 pane 尺寸调整浏览器视口；关掉就固定用 `viewportWidth/Height` |
-| `headless` | `true` | 无头；调试可设 false 看真窗口 |
+| `nativeWindow` | `false` | **原生窗口模式**：浏览器跑在独立原生窗口里，人直接操作 = 零像素流延迟；右栏变成控制台（地址栏/标签/租约/审计），需要时再开「实时镜像」。设为 true 时忽略 `headless` 与 `autoViewport` |
+| `mirrorFps` | 6 | 原生窗口模式下「实时镜像」的帧率上限（关着镜像时完全不出帧，不占 CPU/带宽） |
+| `viewportWidth` / `viewportHeight` | 1280 / 800 | 兜底视口（没有客户端上报尺寸时用这个）。像素流模式下有右栏 pane 时按面板实际尺寸自动跟随，点击坐标按当前视口换算 |
+| `autoViewport` | `true` | 像素流模式下是否跟随右栏 pane 尺寸调整浏览器视口；关掉就固定用 `viewportWidth/Height` |
+| `headless` | `true` | 无头（像素流模式）。`nativeWindow: true` 时自动改为有头 |
 | `executablePath` | 自动探测 | Chrome/Edge 路径；自动探测不到时填 |
 | `profileDir` | `%LOCALAPPDATA%\dsh-agent-browser\profile` | 浏览器用户目录（登录态存这里） |
 | `frameQuality` / `maxFps` | 60 / 30 | 像素流质量与帧率上限（超过丢旧帧；实测滚动可出 40+ fps，30 为清晰度/带宽平衡点） |
@@ -142,6 +158,13 @@ node test/run.mjs --unit   # 只跑纯 JS 单测
 
 ```powershell
 node test/stress.mjs   # 多 agent 并发压测：1/2/4 agent 争用 + 人类抢占 + TTL，约 25s
+```
+
+原生窗口模式（会在屏幕上短暂打开一个浏览器窗口）：
+
+```powershell
+node ..\spike\native-test.mjs       # 引擎层：真窗口、视口随窗口、focus、人类输入探针、镜像启停，期望 7/7
+node ..\spike\native-host-test.mjs  # host 层：nativeWindow 状态、镜像开关出帧/停帧、focus 消息，期望 8/8
 ```
 
 ## 许可证
