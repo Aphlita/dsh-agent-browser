@@ -10,18 +10,26 @@
  * 用法：node test/stress.mjs            （约 25-40s）
  *       node test/stress.mjs --quick    （每场景操作数减半）
  *
- * 结果同时打印到终端并写入 .test-profile/stress-results.json。
+ * 结果同时打印到终端并写入 $AGENT_BROWSER_TEST_DIR（默认系统临时目录）下
+ * 的 stress-results.json。测试产物刻意不落在仓库里：插件安装器会把仓库整包
+ * 复制进 profile 的 generation，仓库里的大目录（Chrome 用户目录等）会被一起带走。
  */
 import http from "node:http";
+import os from "node:os";
 import path from "node:path";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
 const PORT = 39199;
-const OUT_JSON = path.join(ROOT, ".test-profile", "stress-results.json");
+/** 压测临时目录（Chrome profile / 审计 / 结果）；默认系统临时目录，可用 env 覆盖。 */
+const TEST_DIR = process.env.AGENT_BROWSER_TEST_DIR ? path.resolve(process.env.AGENT_BROWSER_TEST_DIR) : path.join(os.tmpdir(), "dsh-agent-browser-stress");
+const OUT_JSON = path.join(TEST_DIR, "stress-results.json");
 const QUICK = process.argv.includes("--quick");
 const OPS = QUICK ? 6 : 12;
+/** 测试页两个按钮的 ref（setup 快照后填充；新版是 f0eN，旧版是 eN）。 */
+let REF_A = "e1";
+let REF_B = "e2";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -130,7 +138,7 @@ async function contention(agents, opsPerAgent) {
         for (let k = 0; k < opsPerAgent; k += 1) {
           const op = k % 4 === 0
             ? await opWithRetry(sessionId, "browser_scroll", { deltaY: 120 })
-            : await opWithRetry(sessionId, "browser_click", { ref: k % 2 === 0 ? "e1" : "e2" });
+            : await opWithRetry(sessionId, "browser_click", { ref: k % 2 === 0 ? REF_A : REF_B });
           results.push(op);
         }
         return { sessionId, results };
@@ -194,7 +202,7 @@ async function preemption(holdMs = 1200) {
     while (!stop) {
       const startedAt = Date.now();
       try {
-        await callTool("browser_click", { ref: "e1" }, sessionId);
+        await callTool("browser_click", { ref: REF_A }, sessionId);
         timeline.push({ at: startedAt, ok: true, ms: Date.now() - startedAt });
       } catch (error) {
         timeline.push({ at: startedAt, ok: false, busy: isBusy(error), error: String(error?.message ?? error), ms: Date.now() - startedAt });
@@ -241,9 +249,9 @@ async function preemption(holdMs = 1200) {
 async function ttlRecover(ttlMs) {
   const holder = "stress-ttl-holder";
   const waiter = "stress-ttl-waiter";
-  await callTool("browser_click", { ref: "e1" }, holder); // 拿到租约后不再续期
+  await callTool("browser_click", { ref: REF_A }, holder); // 拿到租约后不再续期
   const startedAt = Date.now();
-  const got = await opWithRetry(waiter, "browser_click", { ref: "e1" }, ttlMs + 15_000);
+  const got = await opWithRetry(waiter, "browser_click", { ref: REF_A }, ttlMs + 15_000);
   const waitedMs = Date.now() - startedAt;
   const summary = {
     agentLeaseMs: ttlMs,
@@ -262,9 +270,9 @@ async function ttlRecover(ttlMs) {
 /* ---------------- 主流程 ---------------- */
 let exitCode = 0;
 try {
-  await rm(path.join(ROOT, ".test-profile"), { recursive: true, force: true }).catch(() => {});
+  await rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
   const mod = await import(pathToFileURL(path.join(ROOT, "lib", "index.js")).href);
-  const AUDIT = path.join(ROOT, ".test-profile", "audit.jsonl");
+  const AUDIT = path.join(TEST_DIR, "audit.jsonl");
   mod.apply(ctx, {
     headless: true,
     maxFps: 8,
@@ -274,15 +282,17 @@ try {
     agentLeaseMs: 4_000,
     humanLeaseMs: 30_000,
     auditLog: AUDIT,
-    profileDir: path.join(ROOT, ".test-profile", "profile"),
+    profileDir: path.join(TEST_DIR, "profile"),
   });
 
   await new Promise((resolve) => server.listen(PORT, "127.0.0.1", resolve));
 
   const open = await callTool("browser_open", { url: `http://127.0.0.1:${PORT}/` }, "stress-setup");
   console.log(`浏览器：${open.title}（${open.url}）`);
-  const refs = [...String(open.snapshot ?? "").matchAll(/\[(e\d+)\] button "([^"]*)"/g)].map((m) => ({ ref: m[1], label: m[2] }));
+  const refs = [...String(open.snapshot ?? "").matchAll(/\[((?:f\d+)?e\d+)\] button "([^"]*)"/g)].map((m) => ({ ref: m[1], label: m[2] }));
   if (refs.length < 2) throw new Error(`测试页没有找到两个按钮：${open.snapshot}`);
+  REF_A = refs[0].ref;
+  REF_B = refs[1].ref;
   console.log(`按钮引用：${refs.map((r) => `${r.ref}=${r.label}`).join(" / ")}`);
   await callTool("browser_release", {}, "stress-setup");
 

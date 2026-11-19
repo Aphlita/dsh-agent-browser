@@ -11,6 +11,7 @@
  */
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { createServer } from "node:http";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -228,7 +229,9 @@ if (process.argv.includes("--unit")) {
   const mod = await import("../lib/index.js");
   check("导出 name / inject / Config / apply", mod.name === "dsh-agent-browser" && Array.isArray(mod.inject) && Boolean(mod.Config) && typeof mod.apply === "function");
   check("inject 声明 systemPrompt", mod.inject.includes("systemPrompt"));
-  mod.apply(ctx, { profileDir: path.join(HERE, "..", ".test-profile"), headless: true, allowEval: false });
+  // 契约测试不启动浏览器，profileDir 只是占位。放在系统临时目录，
+  // 避免插件安装器把仓库整包复制进 generation 时带上测试痕迹。
+  mod.apply(ctx, { profileDir: path.join(os.tmpdir(), "dsh-agent-browser-contract"), headless: true, allowEval: false });
 
   const expected = [
     "browser_open", "browser_snapshot", "browser_navigate", "browser_click", "browser_type", "browser_press",
