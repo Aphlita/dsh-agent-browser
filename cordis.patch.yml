@@ -5,11 +5,24 @@
     - id: agent-browser
       name: 'dsh-agent-browser'
       config:
+        # 传输：默认 pipe（CDP over stdio，不监听任何 TCP 端口）；
+        # 某些受限环境不兼容时改 "ws" 回退到 localhost 调试端口。
+        transport: pipe
         # 嵌入模式：浏览器就是右侧栏里的一个 <webview>（Electron 原生渲染，零帧流、零延迟）。
-        # 需要桌面端打过 webviewTag 补丁（README「嵌入模式」）；不需要则改回 false 用像素流。
-        embedded: true
+        # 需要桌面端打过 webviewTag 补丁；默认 false = 像素流。
+        # 设为 true 时也不是无条件启用：客户端连接后会先上报 capability，
+        # 只有确认支持 <webview> 才切换，否则保持像素流（见 lib/index.js 的 capability 处理）。
+        embedded: false
         # 原生窗口模式（独立 Chrome 窗口 + 右栏控制台）：和 embedded 二选一。
         nativeWindow: false
+        # 域名策略：allowedHosts 为空 = 不限制；blockedHosts 优先。
+        allowedHosts: []
+        blockedHosts: []
+        # 审批：false = 每次都要右栏批准（推荐）；true = 预批准、不再打断。
+        approveUploads: false
+        approveDangerousNavigate: false
+        # 自定义脱敏正则（会替换成 [REDACTED:custom-N]），在默认规则之外追加。
+        redactPatterns: []
         # 镜像帧率（原生窗口模式下只有点开「实时镜像」才出帧，默认 6fps 够看）。
         mirrorFps: 6
         # 兜底视口：嵌入模式下 <webview> 用面板真实尺寸；这两个值只影响像素流模式。

@@ -192,6 +192,7 @@ if (process.argv.includes("--unit")) {
   const httpRoutes = [];
   const upgrades = [];
   const effects = [];
+  const systemPromptSections = [];
   const ctx = {
     logger: { info() {}, warn() {}, error() {} },
     effect(fn, label) {
@@ -210,6 +211,12 @@ if (process.argv.includes("--unit")) {
       },
     },
     connection: { requestRejection: () => undefined },
+    systemPrompt: {
+      section(spec) {
+        systemPromptSections.push(spec);
+        return () => {};
+      },
+    },
     tools: {
       register(tool) {
         tools.set(tool.name, tool);
@@ -220,13 +227,15 @@ if (process.argv.includes("--unit")) {
 
   const mod = await import("../lib/index.js");
   check("导出 name / inject / Config / apply", mod.name === "dsh-agent-browser" && Array.isArray(mod.inject) && Boolean(mod.Config) && typeof mod.apply === "function");
+  check("inject 声明 systemPrompt", mod.inject.includes("systemPrompt"));
   mod.apply(ctx, { profileDir: path.join(HERE, "..", ".test-profile"), headless: true, allowEval: false });
 
   const expected = [
     "browser_open", "browser_snapshot", "browser_navigate", "browser_click", "browser_type", "browser_press",
     "browser_scroll", "browser_screenshot", "browser_release", "browser_tabs", "browser_wait_for", "browser_eval",
+    "browser_upload", "browser_dialog",
   ];
-  check("注册 12 个工具", tools.size === 12, `${tools.size}: ${[...tools.keys()].join(",")}`);
+  check("注册 14 个工具", tools.size === 14, `${tools.size}: ${[...tools.keys()].join(",")}`);
   check("工具名齐全", expected.every((n) => tools.has(n)), expected.filter((n) => !tools.has(n)).join(","));
   check(
     "每个工具有描述 / 参数 / execute / output.render",
@@ -234,6 +243,7 @@ if (process.argv.includes("--unit")) {
   );
   check("注册 HTTP 前缀路由 /agent-browser/api", httpRoutes.some((r) => r.kind === "prefix" && r.path === "/agent-browser/api"));
   check("注册 WS upgrade /agent-browser/ws", upgrades.some((u) => u.path === "/agent-browser/ws"));
+  check("注入 prompt section", systemPromptSections.some((s) => s.name === "tool:agent-browser" && String(s.text ?? "").includes("browser_snapshot")), `sections=${systemPromptSections.length}`);
   check("用 ctx.effect 管理生命周期", effects.length >= 2, effects.join(" | ").slice(0, 80));
 }
 

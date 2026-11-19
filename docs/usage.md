@@ -14,6 +14,8 @@
 
 它不是 iframe、不是无头爬虫：页面在独立 Chrome 进程里渲染，支持登录、表单、弹窗、下载限制、中文输入。浏览器 profile 独立（不碰你日常 Chrome 的书签/密码）。
 
+引擎细节（出问题时看这两条）：CDP 默认走 **pipe**（stdio，不监听任何调试端口，本机其它程序无法 attach）；页面快照来自**可访问性树 + DOMSnapshot**，所以 iframe（包括跨进程 iframe）里的元素也能读、能点。
+
 ---
 
 ## 2. 打开与关闭
@@ -42,10 +44,10 @@
 | 卡在验证码 | 「停，我来点」→ 你点画面 → 「好了，接着做」 |
 | 让它等页面加载 | 「点完等结果出来再继续（用 browser_wait_for）」 |
 
-agent 实际调用的 12 个工具（了解即可，不必手动调）：
-`browser_open` `browser_snapshot` `browser_navigate` `browser_click` `browser_type` `browser_press` `browser_scroll` `browser_screenshot` `browser_wait_for` `browser_tabs` `browser_release` `browser_eval`
+agent 实际调用的 14 个工具（了解即可，不必手动调）：
+`browser_open` `browser_snapshot` `browser_navigate` `browser_click` `browser_type` `browser_press` `browser_scroll` `browser_screenshot` `browser_wait_for` `browser_tabs` `browser_upload` `browser_dialog` `browser_release` `browser_eval`
 
-快照返回的是**可交互元素树**（`[e3] button "提交" @x,y` 这种），不是整页 HTML，所以 agent 不会烧掉几十万 token 去读源码。
+快照返回的是**可交互元素树**（`[f0e3] button "提交" @x,y` 这种，`f1/f2…` 是 iframe 里的元素），不是整页 HTML，所以 agent 不会烧掉几十万 token 去读源码。密码框的值显示为 `[REDACTED]`，页面文本里的 token/卡号也会先脱敏。
 
 ---
 
@@ -76,6 +78,8 @@ agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标�
 - 右栏画面是**实时像素流**，不是截图。
 - 要留存证据就说「截个图」，agent 调 `browser_screenshot`，落盘到浏览器 profile 同级的 `shots/` 目录（具体路径看工具返回值）。
 - 整页截图：`browser_screenshot(full_page=true)`（超长页会裁到 4000×8000 上限）。
+- 上传文件：agent 调 `browser_upload(ref, files)` 给你指定的文件输入框选本地文件；**默认每次都会在右栏弹审批卡**（显示要上传的绝对路径），你同意后才真正选择文件。不会弹系统文件对话框。
+- 页面对话框（`alert/confirm/prompt/beforeunload`）：agent 先 `browser_dialog(list)` 看有没有挂起的，再 `accept/dismiss`；确认/关闭前同样要你在右栏批准。
 
 ---
 
@@ -86,6 +90,17 @@ agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标�
 - 想用：把配置里 `allowEval` 改成 `true`，重启 DSH；之后每次调用都会在右栏弹卡，点「允许执行」才跑。
 - 审计（每条批准/拒绝都记）：`profileDir/../audit.jsonl`，字段 `{at, kind, owner, expression, approved, reason}`。
 - 关闭状态下调用会返回：「browser_eval 已被配置关闭（allowEval=false）…」。
+
+### 7.1 所有会弹审批卡的动作
+
+| kind | 什么时候弹 | 你能看到什么 | 想免审批 |
+|---|---|---|---|
+| `eval` | 每次 `browser_eval` | 待执行表达式 | `allowEval: false` 时永远弹；没有「免审批」档 |
+| `upload` | `browser_upload` 选本地文件 | 要上传的绝对路径列表 | `approveUploads: true` |
+| `dialog` | `browser_dialog` 的 accept/dismiss | 对话框类型与文案 | 恒弹（策略不提供免审批） |
+| `navigate` | agent 导航到**新域名**或高危地址（`.exe/.msi/.zip/.bat/.ps1` 等） | 目标 URL | `approveDangerousNavigate: true` |
+
+没有右栏客户端时：**导航放行并记审计 `no-client-auto-allow`**；`eval` / `upload` / `dialog` 直接失败（审批送不到）。被域名策略拦下的导航不会弹审批，直接失败并记 `navigation-blocked`。
 
 ![审批卡：标题「允许 agent 在这个页面执行脚本？」+ 待执行表达式 + 允许/拒绝](images/approval.jpg)
 
@@ -143,7 +158,10 @@ agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标�
 | 工具报「未获批准：等待用户批准超时」 | 60s 内没点审批卡 |
 | 百度/Cloudflare 出滑块 | 站点反爬，正常；人类接管点掉即可（这正是共享浏览器的价值） |
 | 截图里看到「美观输出 □」 | Chrome 自带 JSON 查看器的勾选框，页面内容，不是插件浮层 |
-| agent 说页面元素找不到 | 让 agent 先 `browser_snapshot` 看当前 `[eN]`；跨页/滚动后引用会变 |
+| agent 说页面元素找不到 | 让 agent 先 `browser_snapshot` 看当前 `[f0eN]`；跨页/滚动后引用会变（引擎会自动重拍一次并重试，仍失败才报 STALE_REF） |
+| iframe 里的东西点不到 / 读不到 | 新版已支持：快照里 iframe 元素以 `f1eN`、`f2eN` 出现，同进程和跨进程 iframe 都能点。若仍不行，说明页面在 shadow DOM 深层或 canvas 里，只能让 agent 用 `browser_eval` 或坐标点击 |
+| 浏览器进程起不来（pipe 模式） | 看 DSH 日志；临时把配置 `transport` 改成 `"ws"`（回退到随机端口的 DevTools WebSocket）再重启排查 |
+| 右栏提示「桌面端未启用内嵌浏览器补丁，已回退像素流」 | 正常：`embedded: true` 但桌面端 webviewTag 未打补丁，客户端能力探测失败后自动退回像素流。功能不受影响，只是画面走 `<img>` 而不是内嵌 `<webview>` |
 | 画面「一会清楚一会糊」地闪 | 旧版帧流会混入 1.5x 与 1x 两种分辨率的帧（现已修：帧流恒定按 CSS 尺寸，静止补高清帧）。先**刷新页面**，仍闪则重启 DSH 让 host 半更新 |
 | 同一会话开了两个浏览页面，画面尺寸乱跳 | 多个 viewer 各自上报右栏尺寸。host 取「最窄」的那个作为浏览器视口，两边都会稳定，但宽的那边是放大显示 |
 | 原生窗口模式下右栏没有画面 | 正常：镜像默认关闭（不产生帧）。点状态栏「看镜像」；点「回到浏览器窗口」把窗口调到前台 |
@@ -173,3 +191,15 @@ agent 也能自己开/切/关（`browser_tabs`），它开新标签时你的标�
 ```
 
 跑顺了再试复杂任务（登录后台、填表、多页对比）。
+
+---
+
+## 14. 独立 MCP 出口（给别的客户端用）
+
+同一个仓库的 `lib/mcp.js` 是**独立的 stdio MCP server**，不需要 DSH 在跑，把同一批 `browser_*` 工具给 Claude Desktop / Codex / 其它 MCP 客户端：
+
+```powershell
+node lib/mcp.js
+```
+
+配置、协议与工具差异见 [MCP 出口](mcp.md)。注意差异：MCP 模式**没有右栏画面、没有租约、没有审批卡**，所以 `browser_upload` / `browser_dialog` 不弹审批直接执行，`browser_eval` 由 `AGENT_BROWSER_CONFIG.allowEval` 决定；域名策略只拦显式 URL（页面内跳转暂不拦）。想和 DSH 插件共享登录态，把 `AGENT_BROWSER_CONFIG.profileDir` 指到插件那份 `profileDir`。
