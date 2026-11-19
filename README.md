@@ -14,7 +14,10 @@
 
 > **怎么用**：[`docs/usage.md`](docs/usage.md)。MCP 用法见 [`docs/mcp.md`](docs/mcp.md)。host 半 + client 半 + 引擎 + 自研 WebSocket / 租约 / CDP 客户端全部在本仓库内实现，运行时零第三方依赖。
 
-![右栏全屏下的 Agent 浏览器：实时像素流 + 地址栏 + 租约状态](docs/images/gui.jpg)
+| 像素流模式（默认） | 原生窗口模式 |
+|---|---|
+| ![像素流模式：右栏 tab 内实时画面 + 地址栏 + 租约状态](docs/images/pixel-stream.png) | ![原生窗口模式：独立浏览器窗口，右栏显示镜像与控制按钮](docs/images/native-window.png) |
+| 画面在右栏 tab 里，随时能看；人点画面/打字立即接管租约 | 画面是独立的 Chrome/Edge 窗口，零延迟；右栏只剩镜像与「释放 / 重连」 |
 
 > 说明：「共享登录态」目前指**同一个浏览器 profile**（插件自己的 profile，可长期登录）；接你日常 Chrome 的登录态属于尚未实现的 Copilot 档位。
 
