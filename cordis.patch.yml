@@ -5,16 +5,18 @@
     - id: agent-browser
       name: 'dsh-agent-browser'
       config:
-        # 原生窗口模式：浏览器跑在独立原生窗口里，人直接操作 = 零像素流延迟；
-        # 侧栏变成控制台（地址栏/标签/租约/审计），需要时再打开实时镜像。
-        nativeWindow: true
-        # 镜像帧率（只有在右栏打开「实时镜像」时才出帧，默认 6fps 够看）。
+        # 嵌入模式：浏览器就是右侧栏里的一个 <webview>（Electron 原生渲染，零帧流、零延迟）。
+        # 需要桌面端打过 webviewTag 补丁（README「嵌入模式」）；不需要则改回 false 用像素流。
+        embedded: true
+        # 原生窗口模式（独立 Chrome 窗口 + 右栏控制台）：和 embedded 二选一。
+        nativeWindow: false
+        # 镜像帧率（原生窗口模式下只有点开「实时镜像」才出帧，默认 6fps 够看）。
         mirrorFps: 6
-        # 兜底视口：原生窗口模式下由真实窗口决定；autoViewport 只影响像素流模式。
+        # 兜底视口：嵌入模式下 <webview> 用面板真实尺寸；这两个值只影响像素流模式。
         viewportWidth: 1280
         viewportHeight: 800
         autoViewport: true
-        headless: false
+        headless: true
         frameQuality: 60
         # 画面静止 hdIdleMs 后补一张按 devicePixelRatio 抓的高清帧（高分屏不发糊）。
         hdOnIdle: true
